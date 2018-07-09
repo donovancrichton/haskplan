@@ -1,5 +1,7 @@
 {-#OPTIONS_GHC -Wall #-}
 
+{-# LANGUAGE LambdaCase #-}
+
 module Combinators where
 
 import Control.Monad (MonadPlus(..))
@@ -39,7 +41,7 @@ instance Alternative Parser where
 -- | The 'run'  function takes two arguments, a Parser and a String, and 
 -- applies the parse function in the parser to the string. 
 run :: Parser a -> String -> Either Error a
-run p s = case (parse p s) of
+run p s = case parse p s of
   [(result, [])]   -> Right result
   [(_, cs)] -> Left (E ("Parser did not consume complete stream: " ++ cs))
   []        -> Left (E "Parser is empty somehow?")
@@ -47,7 +49,7 @@ run p s = case (parse p s) of
 
 -- | The 'item' combinator returns a single Character Parser.
 item :: Parser Char
-item = Parser $ \s -> case s of
+item = Parser $ \case
   []     -> []
   (c:cs) -> [(c, cs)]
 
@@ -69,13 +71,13 @@ combine p q = Parser (\s -> parse p s ++ parse q s)
 
 -- | The 'failure' combinator returns an empty Parser
 failure :: Parser a
-failure = Parser (\_ -> [])
+failure = Parser (const [])
 
 -- | The 'option' function takes two parsers and applies the second to the
 -- result of the first, if the first was successful.
 option :: Parser a -> Parser a -> Parser a
 option p q = Parser (\s ->
-  case (parse p s) of
+  case parse p s of
    []      -> parse q s
    result  -> result
   )
@@ -94,15 +96,12 @@ between start end p = start *> p <* end
 -- | The 'satisfy' function takes a predicate (Char -> Bool) and returns
 -- a Parser Char if that predicate is satisfied, or 'failure' otherwise.
 satisfy :: (Char -> Bool) -> Parser Char
-satisfy p = item >>= \c -> 
-  case p c of
-    True  -> unit c
-    False -> failure
+satisfy p = item >>= \c -> if p c then unit c else failure
 
 -- | The 'oneOf' function takes a [Char] and attempts to satisfy each
 -- character in order, returning the first Parser Char that succeeds.
-oneOf :: [Char] -> Parser Char
-oneOf s = satisfy (flip elem s)
+oneOf :: String -> Parser Char
+oneOf s = satisfy (`elem` s)
 
 -- | The 'char' function is a convenience function that checks if parsed
 -- Character is equal.
