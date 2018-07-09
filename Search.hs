@@ -13,22 +13,6 @@ import Combinators
 import Parser
 import Types
 
-{-
--- | 'mapify' uses the ST monad to apply a function to each element of a 
--- vector.
-mapify :: (V.Unbox a) => (a -> a) -> V.Vector a -> V.Vector a
-mapify f x = runST $ do
-  let l = (V.length x) - 1
-  m <- V.thaw x
-  forM_ [0..l] $ \i -> do
-    M.modify m f i
-  V.freeze m
-
--- | 'check' returns true if all xs exist somewhere inside ys.
-check :: (V.Unbox a, Eq a) => V.Vector a -> V.Vector a -> Bool
-check = \xs ys -> V.foldr (&&) True (V.map (\x -> V.elem x ys) xs) 
--}
-
 -- | The 'main' function reads the input files, and parses them.
 main :: IO ()
 main = do
