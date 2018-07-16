@@ -1,6 +1,7 @@
 module Main where
 
 import System.IO
+import System.Environment (getArgs)
 import qualified Data.Set as S
 import qualified Data.PQueue.Min as P
 
@@ -12,48 +13,58 @@ import Search
 
 
 
--- | The 'main' function reads the input files, and parses them.
+-- | The 'main' function reads the input files, parses them, and prints a plan.
 main :: IO ()
 main = do
-  -- args <- getArgs
-  --let args = ["../Gripper/domain.pddl", "../Gripper/GENERATOR/gw03.pddl"]
-  let args = ["../Blocks/domain.pddl", "../Blocks/GENERATOR/bw04.pddl"]
+  -- Get the arguments from the command line
+  args <- getArgs
+  -- The first argument is the domain file
   domainHandle <- openFile (head args) ReadMode
+  -- The second argument is the world (problem) file
   worldHandle <- openFile (head (tail args)) ReadMode
+  -- Parse the domain file
   domainStream <- hGetContents domainHandle
+  -- Parse the problem file
   worldStream <- hGetContents worldHandle
-  --print domainStream
-  --print worldStream
+  -- run the domain parser
   let x = run domain domainStream
-  -- print x
   let s  = "Domain failed to parse! World was not built!"
   let x' = case x of
+            -- if a successful domain was parse, run the world parser
             (Right d) -> run (world d) worldStream
             (Left _) -> Left (E s)
+  -- get specific information from the world.
   let as = getActs <$> x'
   let os = getObjs <$> x'
   let gs = getGS <$> x'
   let is = getIS <$> x'
   let rs = is >>= \i -> return (P.singleton (Rs i 0))
+  -- ground all the actions
   let xs = groundAll <$> as <*> os
+  -- list all possible valid actions from the initial state
   let as = validActs <$> is <*> xs
+  -- generate a list of expended states for the valid actions
   let ss = expandStates <$> is <*> as
+  -- start with an empty closed list
   let cl = Right S.empty
-  --print $ (length <$> xs)
-  --print $ xs
-  --print $ os
-  --print $ length <$> xs
-  --print is
-  --print ""
-  --print ss
-  --print gs
-  --print test
-  let search = bfs <$> gs <*> Right (0,0) <*> xs <*> (is >>= \i -> return [i]) <*> cl
-  let search' = case search of
-                Right (Just s, _) -> printParents s
-                _  -> "fail"
+  -- This section exploits lazy evaluation. We can ask Haskell to
+  -- calculate all of the possible searches, but only print one of them.
+  -- Only the printed search will actually get run!
+  let astr = astar <$> gs <*> Right 0 <*> xs <*> rs <*> cl
+  let sbfs = bfs <$> gs <*> Right(0, 0) <*> xs <*> (is >>= \i -> return [i]) <*> cl
+  let sdfs = dfs <$> gs <*> Right(0, 0) <*> xs <*> (is >>= \i -> return [i]) <*> cl
+  let search' = case (head (tail (tail args))) of
+               "dfs" -> case sdfs of 
+                        Right (Just s, _) -> printParents s ++ " " ++ show (getLength s 0)
+                        _  -> "fail"
+               "bfs" -> case sbfs of
+                        Right (Just s, _) -> printParents s ++ " " ++ show (getLength s 0)
+                        _  -> "fail"
+               "astar" -> case astr of
+                        Right (Just s, _) -> printParents s ++ " " ++ show (getLength s 0)
+                        _  -> "fail"
   print search'
-  --let astr = astar <$> gs <*> Right 0 <*> xs <*> rs <*> cl
-  --print astr
+  -- close file handles
   hClose domainHandle
   hClose worldHandle
+  -- exit
